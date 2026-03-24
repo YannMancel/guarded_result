@@ -1,0 +1,21 @@
+targets:
+  $default:
+    builders:
+      source_gen|combining_builder:
+        options:
+          ignore_for_file:
+            - lines_longer_than_80_chars
+            - use_super_parameters
+      guarded_result|result_builder:
+        generate_for:
+          - lib/**.dart
+          - example/**.dart
+
+builders:
+  result_builder:
+    import: "package:guarded_result/src/builder.dart"
+    builder_factories: ["generateResultBuilder"]
+    build_extensions: {".dart": [".g.part"]}
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen:combining_builder"]

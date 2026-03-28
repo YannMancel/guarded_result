@@ -1,13 +1,10 @@
-final class Logger {
-  const Logger({String? base}) : _base = base;
+import 'package:build/build.dart' show log;
 
-  final String? _base;
-
-  void info(String message, {String? prefix}) {
-    final buffer = StringBuffer();
-    if (_base != null) buffer.write('[$_base]');
-    if (prefix != null) buffer.write('[$prefix]');
+abstract class Logger {
+  static void info(String message, {String? prefix}) {
+    final buffer = StringBuffer()..write('[guarded_result]');
+    if (prefix != null) buffer.write('[${prefix.padRight(24, ' ')}]');
     buffer.write(' $message');
-    print('\x1B[36m $buffer \x1B[0m');
+    log.info('\x1B[36m$buffer\x1B[0m');
   }
 }

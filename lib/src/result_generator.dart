@@ -37,15 +37,13 @@ final class ResultGenerator extends GeneratorForAnnotation<ResultAnnotation> {
 final class _ResultBufferBuilder {
   final ClassElement _element;
   final StringBuffer _buffer;
-  final Logger _logger;
 
   _ResultBufferBuilder(ClassElement element)
     : _element = element,
-      _buffer = StringBuffer(),
-      _logger = const Logger(base: 'Result');
+      _buffer = StringBuffer();
 
   _ResultBufferBuilder generateClassStart() {
-    _logger.info('Class: $_className', prefix: '@$ResultAnnotation()');
+    Logger.info('Class: $_className', prefix: '@$ResultAnnotation()');
     _buffer.writeln('''
     final class _\$$_className extends $_className {
     ''');
@@ -65,7 +63,7 @@ final class _ResultBufferBuilder {
         final superIfNeed = argumentMap.isNotEmpty
             ? ' : super(${argumentMap.values.join(',')})'
             : '';
-        _logger.info('Constructor: $constructor', prefix: kConstructorName);
+        Logger.info('Constructor: $constructor', prefix: kConstructorName);
         _buffer.writeln('''
           $classModifiers _\$$_className($arguments)$superIfNeed;
         ''');
@@ -134,7 +132,7 @@ final class _ResultBufferBuilder {
     final arguments = argumentMap.keys.join(',');
     final argumentNames = argumentMap.values.join(',');
     final methodSignature = '${method.returnType} $methodName($arguments)';
-    _logger.info(
+    Logger.info(
       'Public Method: $methodSignature',
       prefix: '@$GuardedResultFuture()',
     );
@@ -157,21 +155,21 @@ final class _ResultBufferBuilder {
         ?.toFunctionValue();
     final hasOnErrorArgument = onError != null;
     if (!hasOnErrorArgument) {
-      _logger.info('No onError', prefix: 'onError');
+      Logger.info('No onError', prefix: 'onError');
       return '';
     }
     if (onError is TopLevelFunctionElement) {
-      _logger.info('${onError.name}', prefix: 'onError:TopLevelFunction');
+      Logger.info('${onError.name}', prefix: 'onError:TopLevelFunction');
       return 'onError: ${onError.name},';
     }
     if (onError.isStatic && onError is MethodElement) {
-      _logger.info(
+      Logger.info(
         '${onError.enclosingElement?.name}.${onError.name}',
         prefix: 'onError:Static Method',
       );
       return 'onError: ${onError.enclosingElement?.name}.${onError.name},';
     }
-    _logger.info('Unknown', prefix: 'onError: Unknown Type');
+    Logger.info('Unknown', prefix: 'onError: Unknown Type');
     return '';
   }
 

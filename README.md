@@ -118,6 +118,8 @@ class MyRepository {
 dart run build_runner build --delete-conflicting-outputs
 ```
 
+**Info:** Add `--verbose` to have logs. 
+
 ### Step 3: Access the additional features
 
 ```dart

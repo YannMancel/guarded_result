@@ -13,7 +13,7 @@ targets:
 
 builders:
   result_builder:
-    import: "package:guarded_result/src/builder.dart"
+    import: "package:guarded_result/builder.dart"
     builder_factories: ["generateResultBuilder"]
     build_extensions: {".dart": [".g.part"]}
     auto_apply: dependents

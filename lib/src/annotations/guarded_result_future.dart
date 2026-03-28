@@ -1,3 +1,6 @@
+import 'package:meta/meta_meta.dart' show Target, TargetKind;
+
+@Target({TargetKind.method})
 final class GuardedResultFuture {
   const GuardedResultFuture({this.onError});
 

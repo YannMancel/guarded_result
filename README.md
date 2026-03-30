@@ -3,7 +3,7 @@
 The `guarded_result` package is a Dart library designed to simplify result handling by encapsulating either a success or an error, whilst automating exception handling through code generation.
 
 **Warning:** The `guarded_result` package has several limitations.
-1. For the `.guard()` factory constructor and methods, the named or optional arguments are not taken into account.
+1. For the `.proxy()` factory constructor and methods, the named or optional arguments are not taken into account.
 2. The `@GuardedResultFuture()` annotation must be on public method.
 
 ## Features
@@ -29,8 +29,8 @@ final message = result.when<String>(
 ### Automated Code Generation (via [build_runner](https://pub.dev/packages/build_runner))
 
 By using annotations, it automatically generates ‘wrapper’ classes that handle the try-catch blocks for you.
-1. `@ResultAnnotation()`: Applied to a class (e.g. a Repository) to trigger the generation of a private subclass (prefixed with `_$`).
-2. `.guard()` factory constructor: Allows you to instantiate the ‘secure’ version of your class.
+1. `@ResultAnnotation()`: Applied to a class (e.g. a Repository) to trigger the generation of a private class (prefixed with `_$` and suffixed with `Proxy`) which implements the class' interface.
+2. `.proxy()` factory constructor: Allows you to instantiate the ‘secure’ version of your class.
 3. `@GuardedResultFuture()`: Applied to a method returning a `Future<Result<T>>`. The generated code overrides this method to execute it in a secure environment that automatically catches exceptions.
 
 ### Custom Error Handling (onError)
@@ -92,18 +92,20 @@ part 'example.g.dart';
 // Activate builder.
 @ResultAnnotation()
 class MyRepository {
-  final String defaultName;
+  const MyRepository(String defaultName) : _defaultName = defaultName;
 
-  const MyRepository(this.defaultName);
+  final String _defaultName;
 
   // Wire up the generated constructor in `example.g.dart`.
-  const factory MyRepository.guard(String defaultName) = _$MyRepository;
+  factory MyRepository.proxy(String defaultName) {
+    return _$MyRepositoryProxy(defaultName);
+  }
 
   // Activate method overloading in `example.g.dart`.
   @GuardedResultFuture(onError: onErrorWithStaticMethod)
   Future<Result> sayHello(String? name) async {
     await Future.delayed(const Duration(seconds: 3));
-    return Success<String>(value: 'Hello ${name ?? defaultName}!');
+    return Success<String>(value: 'Hello ${name ?? _defaultName}!');
   }
 
   static void onErrorWithStaticMethod(Object cause, StackTrace stackTrace) {
@@ -126,7 +128,7 @@ dart run build_runner build --delete-conflicting-outputs
 // main.dart
 
 Future<void> main() async {
-  final repository = MyRepository.guard('berserk');
+  final repository = MyRepository.proxy('berserk');
   final result = await repository.sayHello('Yann');
   final message = result.when<String>(
     success: (message) => message,

@@ -1,1 +1,1 @@
-const kConstructorName = 'guard';
+const kConstructorName = 'proxy';

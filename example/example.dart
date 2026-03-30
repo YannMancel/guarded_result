@@ -11,25 +11,27 @@ void onErrorWithTopLevelFunction(Object cause, StackTrace stackTrace) {
 // Activate builder.
 @ResultAnnotation()
 class MyRepository {
-  final String defaultName;
+  const MyRepository(String defaultName) : _defaultName = defaultName;
 
-  const MyRepository(this.defaultName);
+  final String _defaultName;
 
   // Wire up the generated constructor in `example.g.dart`.
-  const factory MyRepository.guard(String defaultName) = _$MyRepository;
+  factory MyRepository.proxy(String defaultName) {
+    return _$MyRepositoryProxy(defaultName);
+  }
 
   // Activate method overloading in `example.g.dart`.
   @GuardedResultFuture(onError: onErrorWithStaticMethod)
   Future<Result> sayHello(String? name) async {
     await Future.delayed(const Duration(seconds: 3));
-    return Success<String>(value: 'Hello ${name ?? defaultName}!');
+    return Success<String>(value: 'Hello ${name ?? _defaultName}!');
   }
 
   // Activate method overloading in `example.g.dart`.
   @GuardedResultFuture(onError: onErrorWithTopLevelFunction)
   Future<Result> sayGoodBye(String? name) async {
     await Future.delayed(const Duration(seconds: 3));
-    return Success<String>(value: 'Good Bye ${name ?? defaultName}!');
+    return Success<String>(value: 'Good Bye ${name ?? _defaultName}!');
   }
 
   static void onErrorWithStaticMethod(Object cause, StackTrace stackTrace) {

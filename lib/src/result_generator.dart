@@ -3,19 +3,19 @@ import 'dart:async' show FutureOr;
 import 'package:analyzer/dart/element/element.dart'
     show
         ClassElement,
-        ConstructorElement,
         Element,
         ElementAnnotation,
         FormalParameterElement,
         MethodElement,
         TopLevelFunctionElement;
 import 'package:build/build.dart' show BuildStep;
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:guarded_result/src/annotations/guarded_result_future.dart';
 import 'package:guarded_result/src/annotations/result_annotation.dart';
 import 'package:guarded_result/src/constants.dart';
 import 'package:guarded_result/src/logger.dart';
 import 'package:source_gen/source_gen.dart'
-    show ConstantReader, GeneratorForAnnotation;
+    show ConstantReader, GeneratorForAnnotation, InvalidGenerationSourceError;
 
 final class ResultGenerator extends GeneratorForAnnotation<ResultAnnotation> {
   @override
@@ -28,7 +28,10 @@ final class ResultGenerator extends GeneratorForAnnotation<ResultAnnotation> {
     return _ResultBufferBuilder(element)
         .generateClassStart()
         .generateConstructor()
-        .generatePublicMethods()
+        .generatePrivateFields()
+        .generateGetters()
+        .generateSetters()
+        .generateMethods()
         .generateClassEnd()
         .build();
   }
@@ -45,7 +48,7 @@ final class _ResultBufferBuilder {
   _ResultBufferBuilder generateClassStart() {
     Logger.info('Class: $_className', prefix: '@$ResultAnnotation()');
     _buffer.writeln('''
-    final class _\$$_className extends $_className {
+    final class _\$${_className}Proxy implements $_className {
     ''');
     return this;
   }
@@ -53,64 +56,123 @@ final class _ResultBufferBuilder {
   String get _className => _element.name ?? 'Unknown';
 
   _ResultBufferBuilder generateConstructor() {
-    for (final constructor in _constructors) {
-      if (_isConstructorOfResultPackage(constructor)) {
+    for (final constructor in _element.constructors) {
+      if (constructor.name == kConstructorName) {
         final classModifiers = constructor.isConst ? 'const' : '';
-        final argumentMap = _getArgumentMap(
-          formalParameters: constructor.formalParameters,
-        );
+        final argumentMap = _getArgumentMap(constructor.formalParameters);
         final arguments = argumentMap.keys.join(',');
-        final superIfNeed = argumentMap.isNotEmpty
-            ? ' : super(${argumentMap.values.join(',')})'
-            : '';
+        final argumentNames = argumentMap.values.join(',');
+        final target = '$_className($argumentNames)';
         Logger.info('Constructor: $constructor', prefix: kConstructorName);
         _buffer.writeln('''
-          $classModifiers _\$$_className($arguments)$superIfNeed;
+          $classModifiers _\$${_className}Proxy($arguments) : $_targetName = $target;
         ''');
       }
     }
     return this;
   }
 
-  List<ConstructorElement> get _constructors => _element.constructors;
+  String get _targetName => '_target';
 
-  bool _isConstructorOfResultPackage(ConstructorElement constructor) {
-    return constructor.name == kConstructorName;
-  }
-
-  Map<FormalParameterElement, String> _getArgumentMap({
-    required List<FormalParameterElement> formalParameters,
-  }) {
+  Map<FormalParameterElement, String> _getArgumentMap(
+    List<FormalParameterElement> formalParameters,
+  ) {
     return <FormalParameterElement, String>{
       for (final formalParameter in formalParameters)
         formalParameter: formalParameter.displayName,
     };
   }
 
-  _ResultBufferBuilder generatePublicMethods() {
-    for (final publicMethod in _publicMethods) {
-      final annotations = _getMethodAnnotations(publicMethod);
-      for (final annotation in annotations) {
-        if (_isMethodWithGuardedResultFutureAnnotation(
-          publicMethod,
-          annotation,
-        )) {
-          _generateMethodWithGuardedResultFutureAnnotation(
-            publicMethod,
-            annotation,
-          );
-        }
-      }
-    }
+  _ResultBufferBuilder generatePrivateFields() {
+    _buffer.writeln('''
+      final $_className $_targetName;
+    ''');
     return this;
   }
 
-  Iterable<MethodElement> get _publicMethods {
-    return _element.methods.where((method) => method.isPublic);
+  _ResultBufferBuilder generateGetters() {
+    for (final getter in _element.getters) {
+      if (getter.isStatic) continue;
+
+      if (getter.isPrivate) {
+        _buffer.writeln('''
+          @override
+          $getter => throw UnimplementedError();
+        ''');
+        continue;
+      }
+
+      _buffer.writeln('''
+        @override
+        $getter => $_targetName.${getter.name};
+      ''');
+    }
+
+    return this;
   }
 
-  List<ElementAnnotation> _getMethodAnnotations(MethodElement method) {
-    return method.metadata.annotations;
+  _ResultBufferBuilder generateSetters() {
+    for (final setter in _element.setters) {
+      if (setter.isStatic) continue;
+
+      if (setter.isPrivate) {
+        _buffer.writeln('''
+          @override
+          $setter => throw UnimplementedError();
+        ''');
+        continue;
+      }
+
+      final argumentName = _getArgumentMap(
+        setter.formalParameters,
+      ).values.first;
+      _buffer.writeln('''
+        @override
+        $setter => $_targetName.${setter.name} = $argumentName;
+      ''');
+    }
+
+    return this;
+  }
+
+  _ResultBufferBuilder generateMethods() {
+    for (final method in _element.methods) {
+      if (method.isStatic) continue;
+
+      if (method.isPrivate) {
+        _buffer.writeln('''
+          @override
+          $method => throw UnimplementedError();
+        ''');
+        continue;
+      }
+
+      final guardedResultFutureAnnotation = method.metadata.annotations
+          .firstWhereOrNull((annotation) {
+            return _isMethodWithGuardedResultFutureAnnotation(
+              method,
+              annotation,
+            );
+          });
+
+      if (guardedResultFutureAnnotation != null) {
+        _generateMethodWithGuardedResultFutureAnnotation(
+          method,
+          guardedResultFutureAnnotation,
+        );
+        continue;
+      }
+
+      final argumentNames = _getArgumentMap(
+        method.formalParameters,
+      ).values.join(',');
+      _buffer.writeln('''
+        @override
+        $method => $_targetName.${method.name}($argumentNames);
+      ''');
+    }
+
+    return this;
   }
 
   bool _isMethodWithGuardedResultFutureAnnotation(
@@ -125,36 +187,36 @@ final class _ResultBufferBuilder {
     MethodElement method,
     ElementAnnotation annotation,
   ) {
-    final methodName = method.name;
-    final argumentMap = _getArgumentMap(
-      formalParameters: method.formalParameters,
-    );
-    final arguments = argumentMap.keys.join(',');
-    final argumentNames = argumentMap.values.join(',');
-    final methodSignature = '${method.returnType} $methodName($arguments)';
-    Logger.info(
-      'Public Method: $methodSignature',
-      prefix: '@$GuardedResultFuture()',
-    );
-    final onErrorArgument = _generateOnErrorArgument(annotation);
+    if (!method.returnType.isDartAsyncFuture) {
+      throw InvalidGenerationSourceError(
+        'The returned type from ${method.name} is not corrects.',
+        element: method,
+        todo: 'Replace returned type By Future.',
+      );
+    }
+
+    final argumentNames = _getArgumentMap(
+      method.formalParameters,
+    ).values.join(',');
+    Logger.info('Public Method: $method', prefix: '@$GuardedResultFuture()');
+    final onErrorArgument = _getOnErrorArgument(annotation);
     _buffer.writeln('''
       @override
-      $methodSignature async {
+      $method async {
         return Result.guard(
-          () async => super.${method.name}($argumentNames),
+          () async => $_targetName.${method.name}($argumentNames),
           $onErrorArgument
         );
       }
     ''');
   }
 
-  String _generateOnErrorArgument(ElementAnnotation annotation) {
+  String _getOnErrorArgument(ElementAnnotation annotation) {
     final onError = annotation
         .computeConstantValue()
         ?.getField('onError')
         ?.toFunctionValue();
-    final hasOnErrorArgument = onError != null;
-    if (!hasOnErrorArgument) {
+    if (onError == null) {
       Logger.info('No onError', prefix: 'onError');
       return '';
     }

@@ -6,6 +6,7 @@ targets:
           ignore_for_file:
             - lines_longer_than_80_chars
             - use_super_parameters
+            - unused_element
       guarded_result|result_builder:
         generate_for:
           - lib/**.dart

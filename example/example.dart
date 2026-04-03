@@ -1,5 +1,5 @@
 import 'package:guarded_result/guarded_result.dart'
-    show GuardedResultFuture, Result, ResultAnnotation, Success;
+    show GuardedResultFuture, Result, ResultAnnotation, Success, GuardedResult;
 
 // Include the file that the builder will generate.
 part 'example.g.dart';
@@ -18,6 +18,12 @@ class MyRepository {
   // Wire up the generated constructor in `example.g.dart`.
   factory MyRepository.proxy(String defaultName) {
     return _$MyRepositoryProxy(defaultName);
+  }
+
+  // Activate method overloading in `example.g.dart`.
+  @GuardedResult(onError: onErrorWithTopLevelFunction)
+  Result sayHi(String? name) {
+    return Success<String>(value: 'Hi ${name ?? _defaultName}!');
   }
 
   // Activate method overloading in `example.g.dart`.

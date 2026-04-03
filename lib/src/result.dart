@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart' show DeepCollectionEquality;
 import 'package:meta/meta.dart' show immutable;
 
+typedef ValueGetter<T> = T Function();
 typedef AsyncValueGetter<T> = Future<T> Function();
 
 @immutable
@@ -25,12 +26,24 @@ sealed class Result<T> {
     };
   }
 
-  static Future<Result<T>> guard<T>(
-    AsyncValueGetter<Result<T>> run, {
+  static Result<T> guard<T>(
+    ValueGetter<Result<T>> callback, {
+    void Function(Object cause, StackTrace)? onError,
+  }) {
+    try {
+      return callback();
+    } catch (cause, stackTrace) {
+      onError?.call(cause, stackTrace);
+      return Error<T>(cause: cause, stackTrace: stackTrace);
+    }
+  }
+
+  static Future<Result<T>> asyncGuard<T>(
+    AsyncValueGetter<Result<T>> asyncCallback, {
     void Function(Object cause, StackTrace)? onError,
   }) async {
     try {
-      final result = await run();
+      final result = await asyncCallback();
       return result;
     } catch (cause, stackTrace) {
       onError?.call(cause, stackTrace);

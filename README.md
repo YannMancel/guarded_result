@@ -4,7 +4,7 @@ The `guarded_result` package is a Dart library designed to simplify result handl
 
 **Warning:** The `guarded_result` package has several limitations.
 1. For the `.proxy()` factory constructor and methods, the named or optional arguments are not taken into account.
-2. The `@GuardedResult()` and `@GuardedResultFuture()` annotations must be on public method.
+2. The `@Guard()` and `@AsyncGuard()` annotations must be on public method.
 
 ## Features
 
@@ -31,21 +31,21 @@ final message = result.when<String>(
 By using annotations, it automatically generates ‘wrapper’ classes that handle the try-catch blocks for you.
 1. `@ResultAnnotation()`: Applied to a class (e.g. a Repository) to trigger the generation of a private class (prefixed with `_$` and suffixed with `Proxy`) which implements the class' interface.
 2. `.proxy()` factory constructor: Allows you to instantiate the ‘secure’ version of your class.
-3. `@GuardedResult()`: Applied to a method returning a `Result<T>`. The generated code overrides this method to execute it in a secure environment that automatically catches exceptions.
-4. `@GuardedResultFuture()`: Applied to a method returning a `Future<Result<T>>`. The generated code overrides this method to execute it in a secure environment that automatically catches exceptions.
+3. `@Guard()`: Applied to a method returning a `Result<T>`. The generated code overrides this method to execute it in a secure environment that automatically catches exceptions.
+4. `@AsyncGuard()`: Applied to a method returning a `Future<Result<T>>`. The generated code overrides this method to execute it in a secure environment that automatically catches exceptions.
 
 ### Custom Error Handling (onError)
 
-The `@GuardedResult()` and `@GuardedResultFuture()` annotations accept an `onError` parameter. 
+The `@Guard()` and `@AsyncGuard()` annotations accept an `onError` parameter. 
 This allows you to specify a function (static or top-level) that will be called automatically if an exception is thrown whilst the method is being executed.
 
 ```dart
-@GuardedResult(onError: myErrorHandler)
+@Guard(onError: myErrorHandler)
 Result<String> getData() {
   // ...
 }
 
-@GuardedResultFuture(onError: myErrorHandler)
+@AsyncGuard(onError: myErrorHandler)
 Future<Result<String>> fetchData() async { 
   // ...
 }
@@ -107,7 +107,7 @@ dev_dependencies:
 // example.dart
 
 import 'package:guarded_result/guarded_result.dart'
-    show GuardedResultFuture, Result, ResultAnnotation, Success;
+    show AsyncGuard, Guard, Result, ResultAnnotation, Success;
 
 // Include the file that the builder will generate.
 part 'example.g.dart';
@@ -125,13 +125,13 @@ class MyRepository {
   }
 
   // Activate method overloading in `example.g.dart`.
-  @GuardedResult(onError: onErrorWithTopLevelFunction)
+  @Guard(onError: onErrorWithStaticMethod)
   Result sayHi(String? name) {
     return Success<String>(value: 'Hi ${name ?? _defaultName}!');
   }
 
   // Activate method overloading in `example.g.dart`.
-  @GuardedResultFuture(onError: onErrorWithStaticMethod)
+  @AsyncGuard(onError: onErrorWithStaticMethod)
   Future<Result> sayHello(String? name) async {
     await Future.delayed(const Duration(seconds: 3));
     return Success<String>(value: 'Hello ${name ?? _defaultName}!');

@@ -20,7 +20,7 @@ final class _$MyRepositoryProxy implements MyRepository {
   Result<dynamic> sayHi(String? name) {
     return Result.guard(
       () => _target.sayHi(name),
-      onError: onErrorWithTopLevelFunction,
+      onError: MyRepository.onErrorWithStaticMethod,
     );
   }
 

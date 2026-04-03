@@ -10,8 +10,8 @@ import 'package:analyzer/dart/element/element.dart'
         TopLevelFunctionElement;
 import 'package:build/build.dart' show BuildStep;
 import 'package:collection/collection.dart' show IterableExtension;
-import 'package:guarded_result/src/annotations/guarded_result.dart';
-import 'package:guarded_result/src/annotations/guarded_result_future.dart';
+import 'package:guarded_result/src/annotations/async_guard.dart';
+import 'package:guarded_result/src/annotations/guard.dart';
 import 'package:guarded_result/src/annotations/result_annotation.dart';
 import 'package:guarded_result/src/constants.dart';
 import 'package:guarded_result/src/logger.dart';
@@ -149,32 +149,25 @@ final class _ResultBufferBuilder {
         continue;
       }
 
-      final guardedResultFutureAnnotation = method.metadata.annotations
-          .firstWhereOrNull((annotation) {
-            return _isMethodWithGuardedResultFutureAnnotation(
-              method,
-              annotation,
-            );
-          });
+      final asyncGuardAnnotation = method.metadata.annotations.firstWhereOrNull(
+        (annotation) {
+          return _isMethodWithAsyncGuardAnnotation(method, annotation);
+        },
+      );
 
-      if (guardedResultFutureAnnotation != null) {
-        _generateMethodWithGuardedResultFutureAnnotation(
-          method,
-          guardedResultFutureAnnotation,
-        );
+      if (asyncGuardAnnotation != null) {
+        _generateMethodWithAsyncGuardAnnotation(method, asyncGuardAnnotation);
         continue;
       }
 
-      final guardedResultAnnotation = method.metadata.annotations
-          .firstWhereOrNull((annotation) {
-            return _isMethodWithGuardedResultAnnotation(method, annotation);
-          });
+      final guardAnnotation = method.metadata.annotations.firstWhereOrNull((
+        annotation,
+      ) {
+        return _isMethodWithGuardAnnotation(method, annotation);
+      });
 
-      if (guardedResultAnnotation != null) {
-        _generateMethodWithGuardedResultAnnotation(
-          method,
-          guardedResultAnnotation,
-        );
+      if (guardAnnotation != null) {
+        _generateMethodWithGuardAnnotation(method, guardAnnotation);
         continue;
       }
 
@@ -190,15 +183,15 @@ final class _ResultBufferBuilder {
     return this;
   }
 
-  bool _isMethodWithGuardedResultFutureAnnotation(
+  bool _isMethodWithAsyncGuardAnnotation(
     MethodElement method,
     ElementAnnotation annotation,
   ) {
-    return '${annotation.element?.displayName}' == '$GuardedResultFuture' &&
+    return '${annotation.element?.displayName}' == '$AsyncGuard' &&
         method.returnType.isDartAsyncFuture;
   }
 
-  void _generateMethodWithGuardedResultFutureAnnotation(
+  void _generateMethodWithAsyncGuardAnnotation(
     MethodElement method,
     ElementAnnotation annotation,
   ) {
@@ -206,14 +199,14 @@ final class _ResultBufferBuilder {
       throw InvalidGenerationSourceError(
         'The returned type from ${method.name} is not corrects.',
         element: method,
-        todo: 'Replace returned type By Future.',
+        todo: 'Replace returned type By Future<Result<T>.',
       );
     }
 
     final argumentNames = _getArgumentMap(
       method.formalParameters,
     ).values.join(',');
-    Logger.info('Public Method: $method', prefix: '@$GuardedResultFuture()');
+    Logger.info('Public Method: $method', prefix: '@$AsyncGuard()');
     final onErrorArgument = _getOnErrorArgument(annotation);
     _buffer.writeln('''
       @override
@@ -226,15 +219,15 @@ final class _ResultBufferBuilder {
     ''');
   }
 
-  bool _isMethodWithGuardedResultAnnotation(
+  bool _isMethodWithGuardAnnotation(
     MethodElement method,
     ElementAnnotation annotation,
   ) {
-    return '${annotation.element?.displayName}' == '$GuardedResult' &&
+    return '${annotation.element?.displayName}' == '$Guard' &&
         '${method.returnType}' == '$Result';
   }
 
-  void _generateMethodWithGuardedResultAnnotation(
+  void _generateMethodWithGuardAnnotation(
     MethodElement method,
     ElementAnnotation annotation,
   ) {
@@ -249,7 +242,7 @@ final class _ResultBufferBuilder {
     final argumentNames = _getArgumentMap(
       method.formalParameters,
     ).values.join(',');
-    Logger.info('Public Method: $method', prefix: '@$GuardedResult()');
+    Logger.info('Public Method: $method', prefix: '@$Guard()');
     final onErrorArgument = _getOnErrorArgument(annotation);
     _buffer.writeln('''
       @override

@@ -1,5 +1,5 @@
 import 'package:guarded_result/guarded_result.dart'
-    show GuardedResultFuture, Result, ResultAnnotation, Success, GuardedResult;
+    show AsyncGuard, Guard, Result, ResultAnnotation, Success;
 
 // Include the file that the builder will generate.
 part 'example.g.dart';
@@ -21,20 +21,20 @@ class MyRepository {
   }
 
   // Activate method overloading in `example.g.dart`.
-  @GuardedResult(onError: onErrorWithTopLevelFunction)
+  @Guard(onError: onErrorWithStaticMethod)
   Result sayHi(String? name) {
     return Success<String>(value: 'Hi ${name ?? _defaultName}!');
   }
 
   // Activate method overloading in `example.g.dart`.
-  @GuardedResultFuture(onError: onErrorWithStaticMethod)
+  @AsyncGuard(onError: onErrorWithStaticMethod)
   Future<Result> sayHello(String? name) async {
     await Future.delayed(const Duration(seconds: 3));
     return Success<String>(value: 'Hello ${name ?? _defaultName}!');
   }
 
   // Activate method overloading in `example.g.dart`.
-  @GuardedResultFuture(onError: onErrorWithTopLevelFunction)
+  @AsyncGuard(onError: onErrorWithTopLevelFunction)
   Future<Result> sayGoodBye(String? name) async {
     await Future.delayed(const Duration(seconds: 3));
     return Success<String>(value: 'Good Bye ${name ?? _defaultName}!');

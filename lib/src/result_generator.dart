@@ -10,10 +10,12 @@ import 'package:analyzer/dart/element/element.dart'
         TopLevelFunctionElement;
 import 'package:build/build.dart' show BuildStep;
 import 'package:collection/collection.dart' show IterableExtension;
+import 'package:guarded_result/src/annotations/guarded_result.dart';
 import 'package:guarded_result/src/annotations/guarded_result_future.dart';
 import 'package:guarded_result/src/annotations/result_annotation.dart';
 import 'package:guarded_result/src/constants.dart';
 import 'package:guarded_result/src/logger.dart';
+import 'package:guarded_result/src/result.dart';
 import 'package:source_gen/source_gen.dart'
     show ConstantReader, GeneratorForAnnotation, InvalidGenerationSourceError;
 
@@ -163,6 +165,19 @@ final class _ResultBufferBuilder {
         continue;
       }
 
+      final guardedResultAnnotation = method.metadata.annotations
+          .firstWhereOrNull((annotation) {
+            return _isMethodWithGuardedResultAnnotation(method, annotation);
+          });
+
+      if (guardedResultAnnotation != null) {
+        _generateMethodWithGuardedResultAnnotation(
+          method,
+          guardedResultAnnotation,
+        );
+        continue;
+      }
+
       final argumentNames = _getArgumentMap(
         method.formalParameters,
       ).values.join(',');
@@ -180,7 +195,7 @@ final class _ResultBufferBuilder {
     ElementAnnotation annotation,
   ) {
     return '${annotation.element?.displayName}' == '$GuardedResultFuture' &&
-        (method.returnType.isDartAsyncFuture);
+        method.returnType.isDartAsyncFuture;
   }
 
   void _generateMethodWithGuardedResultFutureAnnotation(
@@ -203,8 +218,44 @@ final class _ResultBufferBuilder {
     _buffer.writeln('''
       @override
       $method async {
-        return Result.guard(
+        return Result.asyncGuard(
           () async => $_targetName.${method.name}($argumentNames),
+          $onErrorArgument
+        );
+      }
+    ''');
+  }
+
+  bool _isMethodWithGuardedResultAnnotation(
+    MethodElement method,
+    ElementAnnotation annotation,
+  ) {
+    return '${annotation.element?.displayName}' == '$GuardedResult' &&
+        '${method.returnType}' == '$Result';
+  }
+
+  void _generateMethodWithGuardedResultAnnotation(
+    MethodElement method,
+    ElementAnnotation annotation,
+  ) {
+    if ('${method.returnType}' != '$Result') {
+      throw InvalidGenerationSourceError(
+        'The returned type from ${method.name} is not corrects.',
+        element: method,
+        todo: 'Replace returned type By $Result.',
+      );
+    }
+
+    final argumentNames = _getArgumentMap(
+      method.formalParameters,
+    ).values.join(',');
+    Logger.info('Public Method: $method', prefix: '@$GuardedResult()');
+    final onErrorArgument = _getOnErrorArgument(annotation);
+    _buffer.writeln('''
+      @override
+      $method {
+        return Result.guard(
+          () => $_targetName.${method.name}($argumentNames),
           $onErrorArgument
         );
       }

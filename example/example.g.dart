@@ -17,8 +17,16 @@ final class _$MyRepositoryProxy implements MyRepository {
   String get _defaultName => throw UnimplementedError();
 
   @override
-  Future<Result<dynamic>> sayHello(String? name) async {
+  Result<dynamic> sayHi(String? name) {
     return Result.guard(
+      () => _target.sayHi(name),
+      onError: onErrorWithTopLevelFunction,
+    );
+  }
+
+  @override
+  Future<Result<dynamic>> sayHello(String? name) async {
+    return Result.asyncGuard(
       () async => _target.sayHello(name),
       onError: MyRepository.onErrorWithStaticMethod,
     );
@@ -26,7 +34,7 @@ final class _$MyRepositoryProxy implements MyRepository {
 
   @override
   Future<Result<dynamic>> sayGoodBye(String? name) async {
-    return Result.guard(
+    return Result.asyncGuard(
       () async => _target.sayGoodBye(name),
       onError: onErrorWithTopLevelFunction,
     );

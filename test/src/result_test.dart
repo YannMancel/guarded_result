@@ -60,11 +60,48 @@ void main() {
   });
 
   group('guard', () {
+    test('should returns a $Success', () {
+      const kResult = Success<String>(value: 'foo');
+      final errorCompleter = Completer<void>();
+      expect(
+        Result.guard<String>(
+          () => kResult,
+          onError: (_, _) => errorCompleter.complete(),
+        ),
+        equals(kResult),
+      );
+      expect(errorCompleter.isCompleted, isFalse);
+    });
+
+    test('Given callback throws an exception '
+        'Then should returns an $Error', () {
+      final exception = Exception('fake');
+      final errorCompleter = Completer<void>();
+      expect(
+        Result.guard<String>(
+          () => throw exception,
+          onError: (_, _) => errorCompleter.complete(),
+        ),
+        isA<Error<String>>().having(
+          (e) => e.cause,
+          'cause',
+          isA<Exception>().having(
+            (e) => e.toString(),
+            "exception's message",
+            equals('Exception: fake'),
+          ),
+        ),
+      );
+      expect(errorCompleter.isCompleted, isTrue);
+    });
+  });
+
+  group('asyncGuard', () {
     test('should returns a $Success', () async {
       const kResult = Success<String>(value: 'foo');
       final errorCompleter = Completer<void>();
       await expectLater(
-        Result.guard<String>(
+        Result.asyncGuard<String>(
           () async => Future<Result<String>>.value(kResult),
           onError: (_, _) => errorCompleter.complete(),
         ),
@@ -78,7 +115,7 @@ void main() {
       final exception = Exception('fake');
       final errorCompleter = Completer<void>();
       await expectLater(
-        Result.guard<String>(
+        Result.asyncGuard<String>(
           () async => throw exception,
           onError: (_, _) => errorCompleter.complete(),
         ),

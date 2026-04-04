@@ -8,14 +8,13 @@ import 'package:analyzer/dart/element/element.dart'
         FormalParameterElement,
         MethodElement,
         TopLevelFunctionElement;
+import 'package:analyzer/dart/element/type.dart' show InterfaceType;
 import 'package:build/build.dart' show BuildStep;
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:guarded_result/src/annotations/async_guard.dart';
 import 'package:guarded_result/src/annotations/guard.dart';
 import 'package:guarded_result/src/annotations/result_annotation.dart';
-import 'package:guarded_result/src/constants.dart';
 import 'package:guarded_result/src/logger.dart';
-import 'package:guarded_result/src/result.dart';
 import 'package:source_gen/source_gen.dart'
     show ConstantReader, GeneratorForAnnotation, InvalidGenerationSourceError;
 
@@ -58,21 +57,31 @@ final class _ResultBufferBuilder {
   String get _className => _element.name ?? 'Unknown';
 
   _ResultBufferBuilder generateConstructor() {
-    for (final constructor in _element.constructors) {
-      if (constructor.name == kConstructorName) {
-        final classModifiers = constructor.isConst ? 'const' : '';
-        final argumentMap = _getArgumentMap(constructor.formalParameters);
-        final arguments = argumentMap.keys.join(',');
-        final argumentNames = argumentMap.values.join(',');
-        final target = '$_className($argumentNames)';
-        Logger.info('Constructor: $constructor', prefix: kConstructorName);
-        _buffer.writeln('''
-          $classModifiers _\$${_className}Proxy($arguments) : $_targetName = $target;
-        ''');
-      }
+    final proxyFactory = _element.constructors.firstWhereOrNull(
+      (constructor) => constructor.name == _proxyConstructorName,
+    );
+
+    if (proxyFactory == null) {
+      throw InvalidGenerationSourceError(
+        'The $_proxyConstructorName factory is not found in $_className class.',
+        element: _element,
+      );
     }
+
+    final classModifiers = proxyFactory.isConst ? 'const' : '';
+    final argumentMap = _getArgumentMap(proxyFactory.formalParameters);
+    final arguments = argumentMap.keys.join(',');
+    final argumentNames = argumentMap.values.join(',');
+    final target = '$_className($argumentNames)';
+    Logger.info('Constructor: $proxyFactory', prefix: _proxyConstructorName);
+    _buffer.writeln('''
+      $classModifiers _\$${_className}Proxy($arguments) : $_targetName = $target;
+    ''');
+
     return this;
   }
+
+  String get _proxyConstructorName => 'proxy';
 
   String get _targetName => '_target';
 
@@ -150,22 +159,16 @@ final class _ResultBufferBuilder {
       }
 
       final asyncGuardAnnotation = method.metadata.annotations.firstWhereOrNull(
-        (annotation) {
-          return _isMethodWithAsyncGuardAnnotation(method, annotation);
-        },
+        (annotation) => '${annotation.element?.displayName}' == '$AsyncGuard',
       );
-
       if (asyncGuardAnnotation != null) {
         _generateMethodWithAsyncGuardAnnotation(method, asyncGuardAnnotation);
         continue;
       }
 
-      final guardAnnotation = method.metadata.annotations.firstWhereOrNull((
-        annotation,
-      ) {
-        return _isMethodWithGuardAnnotation(method, annotation);
-      });
-
+      final guardAnnotation = method.metadata.annotations.firstWhereOrNull(
+        (annotation) => '${annotation.element?.displayName}' == '$Guard',
+      );
       if (guardAnnotation != null) {
         _generateMethodWithGuardAnnotation(method, guardAnnotation);
         continue;
@@ -183,23 +186,15 @@ final class _ResultBufferBuilder {
     return this;
   }
 
-  bool _isMethodWithAsyncGuardAnnotation(
-    MethodElement method,
-    ElementAnnotation annotation,
-  ) {
-    return '${annotation.element?.displayName}' == '$AsyncGuard' &&
-        method.returnType.isDartAsyncFuture;
-  }
-
   void _generateMethodWithAsyncGuardAnnotation(
     MethodElement method,
     ElementAnnotation annotation,
   ) {
-    if (!method.returnType.isDartAsyncFuture) {
+    if (!RegExp(r'^Future<Result<.*>>$').hasMatch('${method.returnType}')) {
       throw InvalidGenerationSourceError(
-        'The returned type from ${method.name} is not corrects.',
+        'In $_className class, the returned type of ${method.name} method is '
+        '${method.returnType}. It must be a Future<Result<T>>.',
         element: method,
-        todo: 'Replace returned type By Future<Result<T>.',
       );
     }
 
@@ -207,11 +202,13 @@ final class _ResultBufferBuilder {
       method.formalParameters,
     ).values.join(',');
     Logger.info('Public Method: $method', prefix: '@$AsyncGuard()');
+    final result = (method.returnType as InterfaceType).typeArguments.first;
+    final type = (result as InterfaceType).typeArguments.first;
     final onErrorArgument = _getOnErrorArgument(annotation);
     _buffer.writeln('''
       @override
       $method async {
-        return Result.asyncGuard(
+        return Result.asyncGuard<$type>(
           () async => $_targetName.${method.name}($argumentNames),
           $onErrorArgument
         );
@@ -219,23 +216,15 @@ final class _ResultBufferBuilder {
     ''');
   }
 
-  bool _isMethodWithGuardAnnotation(
-    MethodElement method,
-    ElementAnnotation annotation,
-  ) {
-    return '${annotation.element?.displayName}' == '$Guard' &&
-        '${method.returnType}' == '$Result';
-  }
-
   void _generateMethodWithGuardAnnotation(
     MethodElement method,
     ElementAnnotation annotation,
   ) {
-    if ('${method.returnType}' != '$Result') {
+    if (!RegExp(r'^Result<.*>$').hasMatch('${method.returnType}')) {
       throw InvalidGenerationSourceError(
-        'The returned type from ${method.name} is not corrects.',
+        'In $_className class, the returned type of ${method.name} method is '
+        '${method.returnType}. It must be a Result<T>.',
         element: method,
-        todo: 'Replace returned type By $Result.',
       );
     }
 
@@ -243,11 +232,12 @@ final class _ResultBufferBuilder {
       method.formalParameters,
     ).values.join(',');
     Logger.info('Public Method: $method', prefix: '@$Guard()');
+    final type = (method.returnType as InterfaceType).typeArguments.first;
     final onErrorArgument = _getOnErrorArgument(annotation);
     _buffer.writeln('''
       @override
       $method {
-        return Result.guard(
+        return Result.guard<$type>(
           () => $_targetName.${method.name}($argumentNames),
           $onErrorArgument
         );

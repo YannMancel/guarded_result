@@ -126,13 +126,13 @@ class MyRepository {
 
   // Activate method overloading in `example.g.dart`.
   @Guard(onError: onErrorWithStaticMethod)
-  Result sayHi(String? name) {
+  Result<String> sayHi(String? name) {
     return Success<String>(value: 'Hi ${name ?? _defaultName}!');
   }
 
   // Activate method overloading in `example.g.dart`.
   @AsyncGuard(onError: onErrorWithStaticMethod)
-  Future<Result> sayHello(String? name) async {
+  Future<Result<String>> sayHello(String? name) async {
     await Future.delayed(const Duration(seconds: 3));
     return Success<String>(value: 'Hello ${name ?? _defaultName}!');
   }

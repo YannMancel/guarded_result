@@ -1,1 +1,0 @@
-const kConstructorName = 'proxy';

@@ -17,24 +17,24 @@ final class _$MyRepositoryProxy implements MyRepository {
   String get _defaultName => throw UnimplementedError();
 
   @override
-  Result<dynamic> sayHi(String? name) {
-    return Result.guard(
+  Result<String> sayHi(String? name) {
+    return Result.guard<String>(
       () => _target.sayHi(name),
       onError: MyRepository.onErrorWithStaticMethod,
     );
   }
 
   @override
-  Future<Result<dynamic>> sayHello(String? name) async {
-    return Result.asyncGuard(
+  Future<Result<String>> sayHello(String? name) async {
+    return Result.asyncGuard<String>(
       () async => _target.sayHello(name),
       onError: MyRepository.onErrorWithStaticMethod,
     );
   }
 
   @override
-  Future<Result<dynamic>> sayGoodBye(String? name) async {
-    return Result.asyncGuard(
+  Future<Result<String>> sayGoodBye(String? name) async {
+    return Result.asyncGuard<String>(
       () async => _target.sayGoodBye(name),
       onError: onErrorWithTopLevelFunction,
     );

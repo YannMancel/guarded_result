@@ -1,5 +1,6 @@
 ## 1.0.0
 
+- feat: manage errors
 - refactor: rename annotations
 - feat: add GuardedResult annotation
 - feat: apply proxy design pattern
